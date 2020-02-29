@@ -1208,6 +1208,10 @@ StatsCollector.prototype.processNewStatsReport = function() {
 
             const trackIdentifier = now.trackIdentifier;
             const ssrc = this.peerconnection.getSsrcByTrackId(trackIdentifier);
+
+            if (!ssrc) {
+                return;
+            }
             let ssrcStats = this.ssrc2stats.get(ssrc);
 
             if (!ssrcStats) {
