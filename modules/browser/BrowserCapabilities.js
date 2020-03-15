@@ -39,7 +39,7 @@ export default class BrowserCapabilities extends BrowserDetection {
      * otherwise.
      */
     supportsP2P() {
-        return !this.isFirefox();
+        return true;
     }
 
     /**
@@ -203,8 +203,9 @@ export default class BrowserCapabilities extends BrowserDetection {
         // Older versions of Safari using webrtc/adapter do not support video
         // due in part to Safari only supporting H264 and the bridge sending VP8
         // Newer Safari support VP8 and other WebRTC features.
-        return !this.isSafariWithWebrtc()
-            || (this.isSafariWithVP8() && this.usesPlanB());
+        // return !this.isSafariWithWebrtc()
+        //     || (this.isSafariWithVP8() && this.usesPlanB());
+        return true;
     }
 
     /**

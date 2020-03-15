@@ -1,13 +1,13 @@
 /* global __filename */
 
-import { getLogger } from 'jitsi-meet-logger';
+import {getLogger} from 'jitsi-meet-logger';
 
 import BridgeChannel from './BridgeChannel';
 import GlobalOnErrorHandler from '../util/GlobalOnErrorHandler';
 import * as JitsiConferenceEvents from '../../JitsiConferenceEvents';
 import JitsiLocalTrack from './JitsiLocalTrack';
 import Listenable from '../util/Listenable';
-import { safeCounterIncrement } from '../util/MathUtil';
+import {safeCounterIncrement} from '../util/MathUtil';
 import * as MediaType from '../../service/RTC/MediaType';
 import browser from '../browser';
 import RTCEvents from '../../service/RTC/RTCEvents';
@@ -87,7 +87,7 @@ function _newCreateLocalTracks(mediaStreamMetaData = []) {
             effects
         } = metaData;
 
-        const { deviceId, facingMode } = track.getSettings();
+        const {deviceId, facingMode} = track.getSettings();
 
         // FIXME Move rtcTrackIdCounter to a static method in JitsiLocalTrack
         // so RTC does not need to handle ID management. This move would be
@@ -501,28 +501,33 @@ export default class RTC extends Listenable {
             RTCUtils.setSuspendVideo(pcConstraints, options.abtestSuspendVideo);
 
             Statistics.analytics.addPermanentProperties(
-                { abtestSuspendVideo: options.abtestSuspendVideo });
+                {abtestSuspendVideo: options.abtestSuspendVideo});
         }
 
         // FIXME: We should rename iceConfig to pcConfig.
         if (browser.supportsSdpSemantics()) {
             iceConfig.sdpSemantics = 'plan-b';
+
+            // Set the RTCBundlePolicy to max-bundle so that only one set of ice candidates is generated.
+            // The default policy generates separate ice candidates for audio and video connections.
+            // This change is necessary for Unified plan to work properly on Chrome and Safari.
+            iceConfig.bundlePolicy = 'max-bundle';
+        } else {
+
+            // Set for all other Browser default RTCBundlePolicy
+            iceConfig.bundlePolicy = 'balanced';
         }
 
-        // Set the RTCBundlePolicy to max-bundle so that only one set of ice candidates is generated.
-        // The default policy generates separate ice candidates for audio and video connections.
-        // This change is necessary for Unified plan to work properly on Chrome and Safari.
-        iceConfig.bundlePolicy = 'max-bundle';
 
         peerConnectionIdCounter = safeCounterIncrement(peerConnectionIdCounter);
 
         const newConnection
             = new TraceablePeerConnection(
-                this,
-                peerConnectionIdCounter,
-                signaling,
-                iceConfig, pcConstraints,
-                isP2P, options);
+            this,
+            peerConnectionIdCounter,
+            signaling,
+            iceConfig, pcConstraints,
+            isP2P, options);
 
         this.peerConnections.set(newConnection.id, newConnection);
 
@@ -684,7 +689,7 @@ export default class RTC extends Listenable {
 
         logger.debug(
             `Removed remote tracks for ${owner}`
-                + ` count: ${removedTracks.length}`);
+            + ` count: ${removedTracks.length}`);
 
         return removedTracks;
     }
