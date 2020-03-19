@@ -267,6 +267,13 @@ export default function TraceableUnifiedPlanPeerConnection(
             this.onicecandidate(event);
         }
     };
+
+    //  firefox change!!!
+    // this.peerconnection.ontrack = event => {
+    //     document.getElementById("received_video").srcObject = event.streams[0];
+    //     document.getElementById("hangup-button").disabled = false;
+    // };
+
     this.peerconnection.onaddstream
         = event => this._remoteStreamAdded(event.stream);
     this.peerconnection.onremovestream
@@ -339,6 +346,7 @@ export default function TraceableUnifiedPlanPeerConnection(
 TraceableUnifiedPlanPeerConnection.prototype._processStat
     = function(report, name, statValue) {
         const id = `${report.id}-${name}`;
+
         let s = this.stats[id];
         const now = new Date();
 
@@ -680,8 +688,12 @@ TraceableUnifiedPlanPeerConnection.prototype._remoteTrackAdded = function(stream
 
     let ssrcLines = SDPUtil.findLines(mediaLines[0], 'a=ssrc:');
 
-    ssrcLines
-        = ssrcLines.filter(line => line.indexOf(`msid:${streamId}`) !== -1);
+    // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig
+    if (!browser.isFirefox()) {
+        ssrcLines
+            = ssrcLines.filter(line => line.indexOf(`msid:${streamId}`) !== -1);
+    }
+
     if (!ssrcLines.length) {
         GlobalOnErrorHandler.callErrorHandler(
             new Error(
@@ -1050,6 +1062,7 @@ function extractSSRCMap(desc) {
             }
 
             const msid = ssrc.value;
+
             let ssrcInfo = ssrcMap.get(msid);
 
             if (!ssrcInfo) {
@@ -1208,6 +1221,7 @@ const enforceSendRecv = function(localDescription, options) {
 
     const transformer = new SdpTransformWrap(localDescription.sdp);
     const audioMedia = transformer.selectMedia('audio');
+
     let changed = false;
 
     if (audioMedia && audioMedia.direction !== 'sendrecv') {
@@ -1313,15 +1327,17 @@ const getters = {
         this.trace('getLocalDescription::preTransform', dumpSDP(desc));
 
         // if we're running on FF, transform to Plan B first.
-        // if (browser.usesUnifiedPlan()) {
-        //     desc = this.interop.toPlanB(desc);
-        //     this.trace('getLocalDescription::postTransform (Plan B)',
-        //         dumpSDP(desc));
-        //
-        //     desc = this._injectSsrcGroupForUnifiedSimulcast(desc);
-        //     this.trace('getLocalDescription::postTransform (inject ssrc group)',
-        //         dumpSDP(desc));
-        // }
+        // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig,
+        // we deactivate this, because it is buggy in FF to FF communication
+        if (browser.usesUnifiedPlan() && !browser.isFirefox()) {
+            desc = this.interop.toPlanB(desc);
+            this.trace('getLocalDescription::postTransform (Plan B)',
+                dumpSDP(desc));
+
+            desc = this._injectSsrcGroupForUnifiedSimulcast(desc);
+            this.trace('getLocalDescription::postTransform (inject ssrc group)',
+                dumpSDP(desc));
+        }
 
         if (browser.doesVideoMuteByStreamRemove()) {
             desc = this.localSdpMunger.maybeAddMutedLocalVideoTracksToSDP(desc);
@@ -1340,7 +1356,10 @@ const getters = {
         desc = enforceSendRecv(desc, this.options);
 
         // See the method's doc for more info about this transformation.
-        desc = this.localSdpMunger.transformStreamIdentifiers(desc);
+        // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig,
+        if (!browser.isFirefox()) {
+            desc = this.localSdpMunger.transformStreamIdentifiers(desc);
+        }
 
         return desc;
     },
@@ -1350,11 +1369,12 @@ const getters = {
         this.trace('getRemoteDescription::preTransform', dumpSDP(desc));
 
         // if we're running on FF, transform to Plan B first.
-        // if (browser.usesUnifiedPlan()) {
-        //     desc = this.interop.toPlanB(desc);
-        //     this.trace(
-        //         'getRemoteDescription::postTransform (Plan B)', dumpSDP(desc));
-        // }
+        // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig,
+        if (browser.usesUnifiedPlan() && !browser.isFirefox()) {
+            desc = this.interop.toPlanB(desc);
+            this.trace(
+                'getRemoteDescription::postTransform (Plan B)', dumpSDP(desc));
+        }
 
         return desc || {};
     }
@@ -1465,11 +1485,17 @@ TraceableUnifiedPlanPeerConnection.prototype.addTrackUnmute = function(track) {
  * @private
  */
 TraceableUnifiedPlanPeerConnection.prototype._addStream = function(mediaStream) {
-    const pc = this.peerconnection;
 
-    mediaStream.getTracks().forEach(track => {
-        pc.peerconnection.addTrack(track, mediaStream);
-    });
+    // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig,
+    if (browser.isFirefox()) {
+        const pc = this.peerconnection;
+
+        mediaStream.getTracks().forEach(track => {
+            pc.addTrack(track, mediaStream);
+        });
+    } else {
+        this.peerconnection.addStream(mediaStream);
+    }
 
     this._addedStreams.push(mediaStream);
 };
@@ -1748,6 +1774,7 @@ TraceableUnifiedPlanPeerConnection.prototype._ensureSimulcastGroupIsLast = funct
 
     const videoStartIndex = sdpStr.indexOf('m=video');
     const simStartIndex = sdpStr.indexOf('a=ssrc-group:SIM', videoStartIndex);
+
     let otherStartIndex = sdpStr.lastIndexOf('a=ssrc-group');
 
     if (simStartIndex === -1
@@ -1785,7 +1812,9 @@ TraceableUnifiedPlanPeerConnection.prototype._ensureSimulcastGroupIsLast = funct
 TraceableUnifiedPlanPeerConnection.prototype._adjustLocalMediaDirection = function(
         localDescription) {
     const transformer = new SdpTransformWrap(localDescription.sdp);
+
     let modifiedDirection = false;
+
     const audioMedia = transformer.selectMedia('audio');
 
     if (audioMedia) {
@@ -1857,12 +1886,13 @@ TraceableUnifiedPlanPeerConnection.prototype.setLocalDescription = function(desc
     localSdp = this._ensureSimulcastGroupIsLast(localSdp);
 
     // if we're using unified plan, transform to it first.
-    // if (browser.usesUnifiedPlan()) {
-    //     localSdp = this.interop.toUnifiedPlan(localSdp);
-    //     this.trace(
-    //         'setLocalDescription::postTransform (Unified Plan)',
-    //         dumpSDP(localSdp));
-    // }
+    // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig
+    if (browser.usesUnifiedPlan() && !browser.isFirefox()) {
+        localSdp = this.interop.toUnifiedPlan(localSdp);
+        this.trace(
+            'setLocalDescription::postTransform (Unified Plan)',
+            dumpSDP(localSdp));
+    }
 
     return new Promise((resolve, reject) => {
         this.peerconnection.setLocalDescription(localSdp)
@@ -2022,30 +2052,31 @@ TraceableUnifiedPlanPeerConnection.prototype.setRemoteDescription = function(des
     }
 
     // If the browser uses unified plan, transform to it first
-    if (browser.usesUnifiedPlan()) {
-        // // eslint-disable-next-line no-param-reassign
-        // description = new RTCSessionDescription({
-        //     type: description.type,
-        //     sdp: this.rtxModifier.stripRtx(description.sdp)
-        // });
-        //
-        // this.trace(
-        //     'setRemoteDescription::postTransform (stripRtx)',
-        //     dumpSDP(description));
-        //
-        // // eslint-disable-next-line no-param-reassign
-        // description = this.interop.toUnifiedPlan(description);
-        // this.trace(
-        //     'setRemoteDescription::postTransform (Plan A)',
-        //     dumpSDP(description));
-        //
-        // if (this.isSimulcastOn()) {
-        //     // eslint-disable-next-line no-param-reassign
-        //     description = this._insertUnifiedPlanSimulcastReceive(description);
-        //     this.trace(
-        //         'setRemoteDescription::postTransform (sim receive)',
-        //         dumpSDP(description));
-        // }
+    // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig,
+    if (browser.usesUnifiedPlan() && !browser.isFirefox()) {
+        // eslint-disable-next-line no-param-reassign
+        description = new RTCSessionDescription({
+            type: description.type,
+            sdp: this.rtxModifier.stripRtx(description.sdp)
+        });
+
+        this.trace(
+            'setRemoteDescription::postTransform (stripRtx)',
+            dumpSDP(description));
+
+        // eslint-disable-next-line no-param-reassign
+        description = this.interop.toUnifiedPlan(description);
+        this.trace(
+            'setRemoteDescription::postTransform (Plan A)',
+            dumpSDP(description));
+
+        if (this.isSimulcastOn()) {
+            // eslint-disable-next-line no-param-reassign
+            description = this._insertUnifiedPlanSimulcastReceive(description);
+            this.trace(
+                'setRemoteDescription::postTransform (sim receive)',
+                dumpSDP(description));
+        }
     } else {
         // Plan B
         // eslint-disable-next-line no-param-reassign
@@ -2115,6 +2146,7 @@ TraceableUnifiedPlanPeerConnection.prototype._injectH264IfNotPresent = function(
 
     const { fmtp, payloads, rtp } = videoMLine;
     const payloadsArray = payloads.toString().split(' ');
+
     let dummyPayloadType;
 
     for (let i = 127; i >= 96; i--) {
@@ -2415,76 +2447,79 @@ TraceableUnifiedPlanPeerConnection.prototype._createOfferOrAnswer = function(
                 `create${logName}OnSuccess::preTransform`, dumpSDP(resultSdp));
 
             // if we're using unified plan, transform to Plan B.
-            if (browser.usesUnifiedPlan()) {
-                // eslint-disable-next-line no-param-reassign
-                // resultSdp = this.interop.toPlanB(resultSdp);
-                // this.trace(
-                //     `create${logName}OnSuccess::postTransform (Plan B)`,
-                //     dumpSDP(resultSdp));
-                // if (this.isSimulcastOn()) {
-                //     // eslint-disable-next-line no-param-reassign
-                //     resultSdp
-                //         = this._injectSsrcGroupForUnifiedSimulcast(resultSdp);
-                //     this.trace(
-                //         `create${logName}OnSuccess::postTransform`
-                //         + '(inject ssrc group)', dumpSDP(resultSdp));
-                // }
-            }
+            // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig
+            if (!browser.isFirefox()) {
+                if (browser.usesUnifiedPlan()) {
+                    // eslint-disable-next-line no-param-reassign
+                    resultSdp = this.interop.toPlanB(resultSdp);
+                    this.trace(
+                        `create${logName}OnSuccess::postTransform (Plan B)`,
+                        dumpSDP(resultSdp));
+                    if (this.isSimulcastOn()) {
+                        // eslint-disable-next-line no-param-reassign
+                        resultSdp
+                            = this._injectSsrcGroupForUnifiedSimulcast(resultSdp);
+                        this.trace(
+                            `create${logName}OnSuccess::postTransform`
+                            + '(inject ssrc group)', dumpSDP(resultSdp));
+                    }
+                }
 
-            /**
-             * We don't keep ssrcs consitent for Firefox because rewriting
-             *  the ssrcs between createAnswer and setLocalDescription breaks
-             *  the caching in sdp-interop (sdp-interop must know about all
-             *  ssrcs, and it updates its cache in toPlanB so if we rewrite them
-             *  after that, when we try and go back to unified plan it will
-             *  complain about unmapped ssrcs)
-             */
-            // if (!browser.usesUnifiedPlan()) {
-            //     // If there are no local video tracks, then a "recvonly"
-            //     // SSRC needs to be generated
-            //     if (!this.hasAnyTracksOfType(MediaType.VIDEO)
-            //         && !this.sdpConsistency.hasPrimarySsrcCached()) {
-            //         this.generateRecvonlySsrc();
-            //     }
-            //
-            //     // eslint-disable-next-line no-param-reassign
-            //     resultSdp = new RTCSessionDescription({
-            //         type: resultSdp.type,
-            //         sdp: this.sdpConsistency.makeVideoPrimarySsrcsConsistent(
-            //             resultSdp.sdp)
-            //     });
-            //
-            //     this.trace(
-            //         `create${logName}OnSuccess::postTransform `
-            //              + '(make primary audio/video ssrcs consistent)',
-            //         dumpSDP(resultSdp));
-            // }
+                /**
+                 * We don't keep ssrcs consitent for Firefox because rewriting
+                 *  the ssrcs between createAnswer and setLocalDescription breaks
+                 *  the caching in sdp-interop (sdp-interop must know about all
+                 *  ssrcs, and it updates its cache in toPlanB so if we rewrite them
+                 *  after that, when we try and go back to unified plan it will
+                 *  complain about unmapped ssrcs)
+                 */
+                if (!browser.usesUnifiedPlan()) {
+                    // If there are no local video tracks, then a "recvonly"
+                    // SSRC needs to be generated
+                    if (!this.hasAnyTracksOfType(MediaType.VIDEO)
+                        && !this.sdpConsistency.hasPrimarySsrcCached()) {
+                        this.generateRecvonlySsrc();
+                    }
 
-            // configure simulcast for camera tracks always and for
-            // desktop tracks only when the testing flag for maxbitrates
-            // in config.js is disabled.
-            // if (this.isSimulcastOn()
-            //     && (!this.options.capScreenshareBitrate
-            //     || (this.options.capScreenshareBitrate && hasCameraTrack(this)))) {
-            //     // eslint-disable-next-line no-param-reassign
-            //     resultSdp = this.simulcast.mungeLocalDescription(resultSdp);
-            //     this.trace(
-            //         `create${logName}`
-            //             + 'OnSuccess::postTransform (simulcast)',
-            //         dumpSDP(resultSdp));
-            // }
+                    // eslint-disable-next-line no-param-reassign
+                    resultSdp = new RTCSessionDescription({
+                        type: resultSdp.type,
+                        sdp: this.sdpConsistency.makeVideoPrimarySsrcsConsistent(
+                            resultSdp.sdp)
+                    });
 
-            if (!this.options.disableRtx && browser.supportsRtx()) {
-                // eslint-disable-next-line no-param-reassign
-                resultSdp = new RTCSessionDescription({
-                    type: resultSdp.type,
-                    sdp: this.rtxModifier.modifyRtxSsrcs(resultSdp.sdp)
-                });
+                    this.trace(
+                        `create${logName}OnSuccess::postTransform `
+                        + '(make primary audio/video ssrcs consistent)',
+                        dumpSDP(resultSdp));
+                }
 
-                this.trace(
-                    `create${logName}`
-                         + 'OnSuccess::postTransform (rtx modifier)',
-                    dumpSDP(resultSdp));
+                // configure simulcast for camera tracks always and for
+                // desktop tracks only when the testing flag for maxbitrates
+                // in config.js is disabled.
+                if (this.isSimulcastOn()
+                    && (!this.options.capScreenshareBitrate
+                        || (this.options.capScreenshareBitrate && hasCameraTrack(this)))) {
+                    // eslint-disable-next-line no-param-reassign
+                    resultSdp = this.simulcast.mungeLocalDescription(resultSdp);
+                    this.trace(
+                        `create${logName}`
+                        + 'OnSuccess::postTransform (simulcast)',
+                        dumpSDP(resultSdp));
+                }
+
+                if (!this.options.disableRtx && browser.supportsRtx()) {
+                    // eslint-disable-next-line no-param-reassign
+                    resultSdp = new RTCSessionDescription({
+                        type: resultSdp.type,
+                        sdp: this.rtxModifier.modifyRtxSsrcs(resultSdp.sdp)
+                    });
+
+                    this.trace(
+                        `create${logName}`
+                        + 'OnSuccess::postTransform (rtx modifier)',
+                        dumpSDP(resultSdp));
+                }
             }
 
             // Fix the setup attribute (see _fixAnswerRFC4145Setup for
@@ -2661,6 +2696,7 @@ TraceableUnifiedPlanPeerConnection.prototype.getStats = function(callback, errba
  */
 TraceableUnifiedPlanPeerConnection.prototype.generateNewStreamSSRCInfo = function(track) {
     const rtcId = track.rtcId;
+
     let ssrcInfo = this._getSSRC(rtcId);
 
     if (ssrcInfo) {

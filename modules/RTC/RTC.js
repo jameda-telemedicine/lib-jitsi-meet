@@ -14,6 +14,7 @@ import RTCEvents from '../../service/RTC/RTCEvents';
 import RTCUtils from './RTCUtils';
 import Statistics from '../statistics/statistics';
 import TraceablePeerConnection from './TraceablePeerConnection';
+import TraceableUnifiedPlanPeerConnection from './TraceableUnifiedPlanPeerConnection';
 import VideoType from '../../service/RTC/VideoType';
 
 const logger = getLogger(__filename);
@@ -521,8 +522,10 @@ export default class RTC extends Listenable {
 
         peerConnectionIdCounter = safeCounterIncrement(peerConnectionIdCounter);
 
-        const newConnection
-            = new TraceablePeerConnection(
+        const newConnection =
+            new TraceableUnifiedPlanPeerConnection(
+
+            // = new TraceablePeerConnection(
             this,
             peerConnectionIdCounter,
             signaling,

@@ -1,0 +1,47 @@
+
+@startuml
+skinparam ParticipantPadding 10
+skinparam BoxPadding 10
+
+box "A crate Offer"
+actor JitsiConference #red
+participant JingleSessionPC<<(C,#ADD1B2)>>
+participant RTC1 <<(C,#ADD1B2)>>
+participant TraceableUnifiedPlanPeerConnection<<(C,#ADD1B2)>>
+end box
+
+
+== Initialization ==
+note right of JitsiConference
+ JitsiConference::acceptP2PIncomingCall()
+end note
+JitsiConference -> JingleSessionPC : initialize() ->doInilize()
+JingleSessionPC -> RTC1 : createPeerConnection()
+RTC1 -> TraceableUnifiedPlanPeerConnection : new()
+note right of JingleSessionPC
+Constructor
+ {
+    peerconnection: new RTCUtils.RTCPeerConnectionType(iceConfig, constraints)
+    peerconnection.onaddstream event => this._remoteStreamAdded(event.stream);
+ }
+end note
+TraceableUnifiedPlanPeerConnection [#0000FF]--> JingleSessionPC: peerConnection
+JingleSessionPC [#0000FF]->o TraceableUnifiedPlanPeerConnection : onicecandidate = ()=>{}
+JingleSessionPC [#0000FF]->o TraceableUnifiedPlanPeerConnection : onsignalingstatechange = ()=>{}
+JingleSessionPC [#0000FF]->o TraceableUnifiedPlanPeerConnection : oniceconnectionstatechange = ()=>{}
+JingleSessionPC [#0000FF]-\\o TraceableUnifiedPlanPeerConnection : onnegotiationneeded = ()=>{}
+
+== Create Offer ==
+JitsiConference -> JingleSessionPC: setOfferAnswerCycle
+JingleSessionPC ->  TraceableUnifiedPlanPeerConnection:  addTrack(LocalTrack's)
+note right of JingleSessionPC
+ Prepare and set the new Remote SDP, perhaps change this!!!!!!
+end note
+JingleSessionPC -> JingleSessionPC :_processNewJingleOfferIq()
+JingleSessionPC -> JingleSessionPC :_renegotiate()
+JingleSessionPC -> JingleSessionPC :_initiatorRenegotiate()
+JingleSessionPC -> TraceableUnifiedPlanPeerConnection: createOffer()
+TraceableUnifiedPlanPeerConnection -> TraceableUnifiedPlanPeerConnection: _createOfferOrAnswer()
+TraceableUnifiedPlanPeerConnection -> TraceableUnifiedPlanPeerConnection: _processLocalSSRCsMap()
+
+@enduml
