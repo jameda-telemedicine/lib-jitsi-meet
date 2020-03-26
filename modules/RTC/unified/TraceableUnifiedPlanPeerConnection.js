@@ -3,23 +3,23 @@
 import { getLogger } from 'jitsi-meet-logger';
 import transform from 'sdp-transform';
 
-import * as GlobalOnErrorHandler from '../util/GlobalOnErrorHandler';
-import JitsiRemoteTrack from './JitsiRemoteTrack';
-import * as JitsiTrackEvents from '../../JitsiTrackEvents';
-import * as MediaType from '../../service/RTC/MediaType';
-import LocalSdpMunger from './LocalSdpMunger';
-import RTC from './RTC';
-import RTCUtils from './RTCUtils';
-import browser from '../browser';
-import RTCEvents from '../../service/RTC/RTCEvents';
-import RtxModifier from '../xmpp/RtxModifier';
+import * as GlobalOnErrorHandler from '../../util/GlobalOnErrorHandler';
+import JitsiRemoteTrack from '../JitsiRemoteTrack';
+import * as JitsiTrackEvents from '../../../JitsiTrackEvents';
+import * as MediaType from '../../../service/RTC/MediaType';
+import LocalSdpMunger from '../LocalSdpMunger';
+import RTC from '../RTC';
+import RTCUtils from '../RTCUtils';
+import browser from '../../browser';
+import RTCEvents from '../../../service/RTC/RTCEvents';
+import RtxModifier from '../../xmpp/RtxModifier';
 
 // FIXME SDP tools should end up in some kind of util module
-import SDP from '../xmpp/SDP';
-import SdpConsistency from '../xmpp/SdpConsistency';
-import { SdpTransformWrap } from '../xmpp/SdpTransformUtil';
-import SDPUtil from '../xmpp/SDPUtil';
-import * as SignalingEvents from '../../service/RTC/SignalingEvents';
+import SDP from '../../xmpp/SDP';
+import SdpConsistency from '../../xmpp/SdpConsistency';
+import { SdpTransformWrap } from '../../xmpp/SdpTransformUtil';
+import SDPUtil from '../../xmpp/SDPUtil';
+import * as SignalingEvents from '../../../service/RTC/SignalingEvents';
 
 const logger = getLogger(__filename);
 const SIMULCAST_LAYERS = 3;
@@ -689,7 +689,7 @@ TraceableUnifiedPlanPeerConnection.prototype._remoteTrackAdded = function(stream
     let ssrcLines = SDPUtil.findLines(mediaLines[0], 'a=ssrc:');
 
     // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig
-    if (!browser.isPatched()) {
+    if (!browser.isFirefox()) {
         ssrcLines
             = ssrcLines.filter(line => line.indexOf(`msid:${streamId}`) !== -1);
     }
@@ -1329,7 +1329,7 @@ const getters = {
         // if we're running on FF, transform to Plan B first.
         // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig,
         // we deactivate this, because it is buggy in FF to FF communication
-        if (browser.usesUnifiedPlan() && !browser.isPatched()) {
+        if (browser.usesUnifiedPlan() && !browser.isFirefox()) {
             desc = this.interop.toPlanB(desc);
             this.trace('getLocalDescription::postTransform (Plan B)',
                 dumpSDP(desc));
@@ -1357,7 +1357,7 @@ const getters = {
 
         // See the method's doc for more info about this transformation.
         // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig,
-        if (!browser.isPatched()) {
+        if (!browser.isFirefox()) {
             desc = this.localSdpMunger.transformStreamIdentifiers(desc);
         }
 
@@ -1370,7 +1370,7 @@ const getters = {
 
         // if we're running on FF, transform to Plan B first.
         // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig,
-        if (browser.usesUnifiedPlan() && !browser.isPatched()) {
+        if (browser.usesUnifiedPlan() && !browser.isFirefox()) {
             desc = this.interop.toPlanB(desc);
             this.trace(
                 'getRemoteDescription::postTransform (Plan B)', dumpSDP(desc));
@@ -1487,7 +1487,7 @@ TraceableUnifiedPlanPeerConnection.prototype.addTrackUnmute = function(track) {
 TraceableUnifiedPlanPeerConnection.prototype._addStream = function(mediaStream) {
 
     // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig,
-    if (browser.isPatched()) {
+    if (browser.isFirefox()) {
         const pc = this.peerconnection;
 
         mediaStream.getTracks().forEach(track => {
@@ -1887,7 +1887,7 @@ TraceableUnifiedPlanPeerConnection.prototype.setLocalDescription = function(desc
 
     // if we're using unified plan, transform to it first.
     // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig
-    if (browser.usesUnifiedPlan() && !browser.isPatched()) {
+    if (browser.usesUnifiedPlan() && !browser.isFirefox()) {
         localSdp = this.interop.toUnifiedPlan(localSdp);
         this.trace(
             'setLocalDescription::postTransform (Unified Plan)',
@@ -2053,7 +2053,7 @@ TraceableUnifiedPlanPeerConnection.prototype.setRemoteDescription = function(des
 
     // If the browser uses unified plan, transform to it first
     // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig,
-    if (browser.usesUnifiedPlan() && !browser.isPatched()) {
+    if (browser.usesUnifiedPlan() && !browser.isFirefox()) {
         // eslint-disable-next-line no-param-reassign
         description = new RTCSessionDescription({
             type: description.type,
@@ -2447,8 +2447,8 @@ TraceableUnifiedPlanPeerConnection.prototype._createOfferOrAnswer = function(
                 `create${logName}OnSuccess::preTransform`, dumpSDP(resultSdp));
 
             // if we're using unified plan, transform to Plan B.
-            // @PATCH-1 P2P Firefox <-> Firefox enrico.schwendig
-            if (!browser.isPatched()) {
+            // @PATCH-2 P2P Firefox <-> Firefox enrico.schwendig
+            if (!browser.isFirefox()) {
                 if (browser.usesUnifiedPlan()) {
                     // eslint-disable-next-line no-param-reassign
                     resultSdp = this.interop.toPlanB(resultSdp);

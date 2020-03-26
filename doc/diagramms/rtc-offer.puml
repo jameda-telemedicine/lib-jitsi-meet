@@ -1,0 +1,102 @@
+
+@startuml
+skinparam ParticipantPadding 10
+skinparam BoxPadding 10
+
+box "A crate Offer"
+actor JitsiConference #red
+participant JingleSessionPC<<(C,#ADD1B2)>>
+participant RTC1 <<(C,#ADD1B2)>>
+participant TraceableUnifiedPlanPeerConnection<<(C,#ADD1B2)>>
+participant XmPP
+end box
+actor Participant
+
+== Initialization ==
+note right of JitsiConference
+ JitsiConference::acceptP2PIncomingCall()
+end note
+JitsiConference -> JingleSessionPC : initialize() ->doInilize()
+JingleSessionPC -> RTC1 : createPeerConnection()
+RTC1 -> TraceableUnifiedPlanPeerConnection : new()
+note right of JingleSessionPC
+Constructor
+ {
+    peerconnection: new RTCUtils.RTCPeerConnectionType(iceConfig, constraints)
+    peerconnection.onaddstream event => this._remoteStreamAdded(event.stream);
+ }
+end note
+TraceableUnifiedPlanPeerConnection [#0000FF]--> JingleSessionPC: peerConnection
+JingleSessionPC [#0000FF]->o TraceableUnifiedPlanPeerConnection : onicecandidate = ()=>{}
+JingleSessionPC [#0000FF]->o TraceableUnifiedPlanPeerConnection : onsignalingstatechange = ()=>{}
+JingleSessionPC [#0000FF]->o TraceableUnifiedPlanPeerConnection : oniceconnectionstatechange = ()=>{}
+JingleSessionPC [#0000FF]-\\o TraceableUnifiedPlanPeerConnection : onnegotiationneeded = ()=>{}
+
+== Create Offer ==
+note right of JitsiConference
+ _acceptP2PIncomingCalle
+end note
+
+JitsiConference -> JingleSessionPC:  acceptOffer
+JingleSessionPC -> JingleSessionPC:  setOfferAnswerCycle
+activate JingleSessionPC
+    JingleSessionPC ->  TraceableUnifiedPlanPeerConnection:  addTrack(LocalTrack's)
+    note right of JingleSessionPC
+     Prepare and set the new Remote SDP, perhaps change this!!!!!!
+    end note
+
+    JingleSessionPC -> JingleSessionPC :_processNewJingleOfferIq()
+
+
+    JingleSessionPC -> JingleSessionPC :_renegotiate()
+        activate JingleSessionPC #FFBBBB
+        JingleSessionPC -> JingleSessionPC :_initiatorRenegotiate()
+            activate JingleSessionPC #DarkSalmon
+            JingleSessionPC -> TraceableUnifiedPlanPeerConnection: createOffer()
+                activate TraceableUnifiedPlanPeerConnection
+                TraceableUnifiedPlanPeerConnection -> TraceableUnifiedPlanPeerConnection: _createOfferOrAnswer()
+                    activate TraceableUnifiedPlanPeerConnection #FFBBBB
+                    note right of TraceableUnifiedPlanPeerConnection
+                     extractSSRCMap ---> this.localSSRCs: TPCSSRCInfo
+                    end note
+                    TraceableUnifiedPlanPeerConnection -> TraceableUnifiedPlanPeerConnection: extractSSRCMap
+                    TraceableUnifiedPlanPeerConnection -> TraceableUnifiedPlanPeerConnection: _processLocalSSRCsMap()
+                        activate TraceableUnifiedPlanPeerConnection #DarkSalmon
+                            TraceableUnifiedPlanPeerConnection -> TraceableUnifiedPlanPeerConnection: this.localSSRCs.set(track.rtcId, newSSRC);
+                            TraceableUnifiedPlanPeerConnection --> JingleSessionPC: Promis<RTCSessionDescription>
+                        deactivate TraceableUnifiedPlanPeerConnection
+                    deactivate TraceableUnifiedPlanPeerConnection
+                deactivate TraceableUnifiedPlanPeerConnection
+
+                JingleSessionPC -> TraceableUnifiedPlanPeerConnection: setLocalDescription(<RTCSessionDescription>offer)
+                activate TraceableUnifiedPlanPeerConnection #FFBBBB
+                    TraceableUnifiedPlanPeerConnection -> TraceableUnifiedPlanPeerConnection:_adjustLocalMediaDirection
+                deactivate TraceableUnifiedPlanPeerConnection
+
+                JingleSessionPC -> TraceableUnifiedPlanPeerConnection: setRemoteDescription(<RTCSessionDescription>answer)
+                note right of TraceableUnifiedPlanPeerConnection
+                 normalise SDP
+                end note
+                activate TraceableUnifiedPlanPeerConnection #FFBBBB
+                    TraceableUnifiedPlanPeerConnection -> TraceableUnifiedPlanPeerConnection:_injectH264IfNotPresent
+                    note right of TraceableUnifiedPlanPeerConnection
+                     Safari changes in h264 video mline
+                    end note
+                deactivate TraceableUnifiedPlanPeerConnection
+
+            deactivate JingleSessionPC
+        deactivate JingleSessionPC
+
+        JingleSessionPC -> JingleSessionPC: notifyMySSRCUpdate
+
+        activate JingleSessionPC #FFBBBB
+            JingleSessionPC -> XmPP: sendIQ: source-add | source-remove
+            XmPP -> Participant
+        deactivate JingleSessionPC
+
+    deactivate JingleSessionPC
+deactivate JingleSessionPC
+JitsiConference -> JingleSessionPC : sendSessionAccept
+JingleSessionPC -> XmPP: sendIQ: session-accept -> initiator
+XmPP -> Participant
+@enduml

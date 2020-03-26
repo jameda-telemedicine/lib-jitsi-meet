@@ -73,6 +73,14 @@ export default class BrowserCapabilities extends BrowserDetection {
     }
 
     /**
+     * Patched Browsers
+     * @returns {boolean}
+     */
+    isPatched() {
+        return true;
+    }
+
+    /**
      * Checks if current browser is a Safari and a version of Safari that
      * supports VP8.
      *
