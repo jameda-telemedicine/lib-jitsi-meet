@@ -2010,9 +2010,13 @@ TraceablePeerConnection.prototype._insertUnifiedPlanSimulcastReceive = function(
 TraceablePeerConnection.prototype.setMaxBitRate = function(localTrack) {
     const mediaType = localTrack.type;
 
-    if (!this.options.capScreenshareBitrate
-        || mediaType === MediaType.AUDIO) {
-
+    // No need to set max bitrates on the streams in the following cases.
+    // 1. When an audio track has been replaced.
+    // 2. When a 'camera' track is replaced in plan-b mode.
+    // 3. When the config.js option for capping the SS bitrate is not enabled.
+    if ((mediaType === MediaType.AUDIO)
+        || (browser.usesPlanB() && !this.options.capScreenshareBitrate)
+        || (browser.usesPlanB() && localTrack.videoType === 'camera')) {
         return;
     }
     if (!this.peerconnection.getSenders) {
@@ -2037,7 +2041,14 @@ TraceablePeerConnection.prototype.setMaxBitRate = function(localTrack) {
                             parameters.encodings[encoding].maxBitrate
                                 = videoType === 'desktop' && browser.usesPlanB()
                                     ? DESKSTOP_SHARE_RATE
-                                    : SIM_LAYER_BITRATES_BPS[encoding];
+
+                                    // In unified plan, simulcast for SS is on by
+                                    // default. When simulcast is disabled through
+                                    // a config.js option, then we set a cap of 2500 Kbps
+                                    // on both camera and desktop tracks.
+                                    : this.isSimulcastOn()
+                                        ? SIM_LAYER_BITRATES_BPS[encoding]
+                                        : SIM_LAYER_BITRATES_BPS[0];
                         }
                     }
                     sender.setParameters(parameters);
