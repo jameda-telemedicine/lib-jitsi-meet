@@ -1291,7 +1291,7 @@ TraceablePeerConnection.prototype.ontrack = function(event) {
     logger.info(`ontrack fired for track ${track}`);
     stream.onremovetrack = evt => {
         logger.info(`remove track fired for stream: ${stream.id}, and track: ${evt.track.id}`);
-        this._remoteTrackRemoved(stream, evt.track);
+        this._remoteTrackRemoved(stream, evt.track, transceiver);
     };
     this._remoteTrackAdded(stream, track, transceiver);
 };
@@ -1373,9 +1373,11 @@ const getters = {
 
         // if we're running on FF, transform to Plan B first.
         if (browser.usesUnifiedPlan()) {
+            logger.debug(`getLocalDescription::preTransform (Unified): 
+                ${dumpSDP(desc)}`);
             desc = this.interop.toPlanB(desc);
-            this.trace('getLocalDescription::postTransform (Plan B)',
-                dumpSDP(desc));
+            logger.debug(`getLocalDescription::postTransform (Plan B): 
+                ${dumpSDP(desc)}`);
 
             if (this.isSimulcastOn()) {
                 desc = this._injectSsrcGroupForUnifiedSimulcast(desc);
@@ -1414,11 +1416,11 @@ const getters = {
             return {};
         }
 
-        // if we're running on FF, transform to Plan B first.
+        // if we're running client in Unified plan, transform to Plan B first.
         if (browser.usesUnifiedPlan()) {
-            this.trace('getRemoteDescription::preTransform', dumpSDP(desc));
+            this.trace(`getRemoteDescription::preTransform (Unified) : ${dumpSDP(desc)}`);
             desc = this.interop.toPlanB(desc);
-            this.trace('getRemoteDescription::postTransform (Plan B)', dumpSDP(desc));
+            this.trace(`getRemoteDescription::postTransform (Plan B): ${dumpSDP(desc)}`);
         }
 
         return desc;
@@ -1779,6 +1781,14 @@ TraceablePeerConnection.prototype._ensureSimulcastGroupIsLast = function(
     });
 };
 
+/**
+ * Ensures that the ssrcs associated with a FID ssrc-group appear in the correct order, i.e.,
+ * the primary ssrc first and the secondary rtx ssrc later. This is important for unified
+ * plan since we have only one FID group per media description.
+ * @param {Object} description the webRTC session description instance for the remote
+ * description.
+ * @private
+ */
 TraceablePeerConnection.prototype._ensureCorrectOrderOfSsrcs = function(description) {
     const parsedSdp = transform.parse(description.sdp);
 
@@ -2033,26 +2043,27 @@ TraceablePeerConnection.prototype.setMaxBitRate = function(localTrack) {
             try {
                 const parameters = sender.getParameters();
 
-                if (parameters.encodings && parameters.encodings.length) {
-                    logger.info('Setting max bitrate on video stream');
-                    for (const encoding in parameters.encodings) {
-                        if (parameters.encodings.hasOwnProperty(encoding)) {
-                            parameters.encodings[encoding].enable = true;
-                            parameters.encodings[encoding].maxBitrate
-                                = videoType === 'desktop' && browser.usesPlanB()
-                                    ? DESKSTOP_SHARE_RATE
-
-                                    // In unified plan, simulcast for SS is on by
-                                    // default. When simulcast is disabled through
-                                    // a config.js option, then we set a cap of 2500 Kbps
-                                    // on both camera and desktop tracks.
-                                    : this.isSimulcastOn()
-                                        ? SIM_LAYER_BITRATES_BPS[encoding]
-                                        : SIM_LAYER_BITRATES_BPS[0];
-                        }
-                    }
-                    sender.setParameters(parameters);
+                if (!parameters.encodings || !parameters.encodings.length) {
+                    return;
                 }
+                logger.info('Setting max bitrate on video stream');
+                for (const encoding in parameters.encodings) {
+                    if (parameters.encodings.hasOwnProperty(encoding)) {
+                        parameters.encodings[encoding].enable = true;
+                        parameters.encodings[encoding].maxBitrate
+                            = videoType === 'desktop' && browser.usesPlanB()
+                                ? DESKSTOP_SHARE_RATE
+
+                                // In unified plan, simulcast for SS is on by
+                                // default. When simulcast is disabled through
+                                // a config.js option, then we set a cap of 2500 Kbps
+                                // on both camera and desktop tracks.
+                                : this.isSimulcastOn()
+                                    ? SIM_LAYER_BITRATES_BPS[encoding]
+                                    : SIM_LAYER_BITRATES_BPS[0];
+                    }
+                }
+                sender.setParameters(parameters);
             } catch (err) {
                 logger.error('Browser does not support getParameters/setParamters '
                     + 'or setting max bitrate on the encodings: ', err);
@@ -2087,9 +2098,11 @@ TraceablePeerConnection.prototype.setRemoteDescription = function(description) {
     } else {
         const currentDescription = this.peerconnection.remoteDescription;
 
+        logger.debug(`setRemoteDescription::preTransform (Plan A): ${dumpSDP(description)}`);
+        logger.debug(`setRemoteDescription::currentDescription : ${dumpSDP(currentDescription)}`);
         // eslint-disable-next-line no-param-reassign
         description = this.interop.toUnifiedPlan(description, currentDescription);
-        this.trace('setRemoteDescription::postTransform (Plan A)', dumpSDP(description));
+        logger.debug(`setRemoteDescription::postTransform (Unified): ${dumpSDP(description)}`);
         if (this.isSimulcastOn()) {
             // eslint-disable-next-line no-param-reassign
             description = this._insertUnifiedPlanSimulcastReceive(description);
