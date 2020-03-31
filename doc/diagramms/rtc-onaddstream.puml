@@ -1,0 +1,68 @@
+@startuml
+actor EventStream
+box "On Add Stream Event"
+participant TraceableUnifiedPlanPeerConnection<<(C,#ADD1B2)>>
+participant Stream
+participant RemoteSDP
+participant JitsiRemoteTrack
+participant SignalingLayer
+end box
+actor Participant
+
+EventStream -> TraceableUnifiedPlanPeerConnection ++ : onaddStream(event)
+    TraceableUnifiedPlanPeerConnection -> TraceableUnifiedPlanPeerConnection ++  #FFBBBB :_remoteStreamAdded(event.stream)
+        note right TraceableUnifiedPlanPeerConnection
+         Only in Chrome add <b>onaddtrack / onremovetrack</b> Events to Stream
+
+         stream.onaddtrack    = event => this._remoteTrackAdded
+         stream.onremovetrack = event => this._remoteTrackRemoved
+        end note
+        TraceableUnifiedPlanPeerConnection -> Stream ++ : getAudioTracks
+        return Track[]
+        TraceableUnifiedPlanPeerConnection -> TraceableUnifiedPlanPeerConnection ++ #DarkSalmon : _remoteTrackAdded(<b>audio</b>)
+        TraceableUnifiedPlanPeerConnection -> RemoteSDP: new SDP(this.remoteDescription.sdp)
+        TraceableUnifiedPlanPeerConnection -> RemoteSDP ++ : media.filter(mls => mls.startsWith(`m=<b>audio</b>`))
+        return mediaLines[]
+                note right TraceableUnifiedPlanPeerConnection
+                <b>Find trackId</b>
+                 # take the first line: mediaLines[0]
+                 # find all ssrcLine[] = 'a=ssrc:' in mediaLines[0]
+                 # reduce all ssrcLine[] to there <i>msid:${streamId}</i>
+                 # get only the first line srcLine[0]
+                 # get trackSsrc number from there
+                end note
+                TraceableUnifiedPlanPeerConnection -> SignalingLayer ++ : getSSRCOwner(trackSsrc)
+                    SignalingLayer -> Participant: ??
+                return ownerEndpointId
+
+                TraceableUnifiedPlanPeerConnection -> SignalingLayer ++ : getPeerMediaInfo(ownerEndpointId, <b>audio</b>)
+                    SignalingLayer -> Participant: ??
+                return peerMediaInfo
+
+                TraceableUnifiedPlanPeerConnection -> TraceableUnifiedPlanPeerConnection ++ #68091b : _createRemoteTrack()
+                TraceableUnifiedPlanPeerConnection -> JitsiRemoteTrack: new JitsiRemoteTrack(ownerEndpointId, stream, track, mediaType, videoType, trackSsrc, muted)
+                note right TraceableUnifiedPlanPeerConnection
+                <b>Set New Remote Trackd</b>
+                remoteTracksMap = this.remoteTracks.get(ownerEndpointId) || new Map()
+                this.remoteTracks.set(ownerEndpointId, remoteTracksMap);
+                end note
+
+                note right TraceableUnifiedPlanPeerConnection
+                <b>Trigger Event</b>
+                this.eventEmitter.emit(RTCEvents.<b>REMOTE_TRACK_ADDED</b>, remoteTrack)
+                end note
+
+                return void
+        return void
+
+        TraceableUnifiedPlanPeerConnection -> TraceableUnifiedPlanPeerConnection ++ #DarkSalmon : _remoteTrackAdded(<b>video</b>)
+        ... The same for <b>video</b> track like audio track ...
+        return void
+
+
+    return void
+
+return void
+
+@enduml
+
