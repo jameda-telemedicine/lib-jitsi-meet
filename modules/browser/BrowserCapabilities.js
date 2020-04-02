@@ -39,7 +39,7 @@ export default class BrowserCapabilities extends BrowserDetection {
      * otherwise.
      */
     supportsP2P() {
-        return !this.usesUnifiedPlan();
+        return true;
     }
 
     /**
@@ -275,6 +275,14 @@ export default class BrowserCapabilities extends BrowserDetection {
      */
     supportsSdpSemantics() {
         return this.isChromiumBased() && this._getChromiumBasedVersion() >= 65;
+    }
+
+    /**
+     * hold it
+     * @returns {boolean}
+     */
+    supportsVideo() {
+        return true;
     }
 
     /**
