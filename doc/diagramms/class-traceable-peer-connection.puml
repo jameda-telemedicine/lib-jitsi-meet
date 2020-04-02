@@ -1,0 +1,19 @@
+@startuml
+class BridgeChannel
+
+JitsiLocalTrack --> JitsiTrack
+JitsiLocalTrack --> RTCUtils
+JitsiRemoteTrack --> JitsiTrack
+JitsiTrack --> RTCUtils
+RTC --> BridgeChannel
+RTC --> JitsiLocalTrack
+RTC --> RTCUtils
+RTC --> TraceablePeerConnection
+RTCUtils --> ScreenObtainer
+TraceablePeerConnection --> JitsiRemoteTrack
+TraceablePeerConnection --> LocalSdpMunger
+TraceablePeerConnection --> RTC
+TraceablePeerConnection --> RTCUtils
+
+
+@enduml

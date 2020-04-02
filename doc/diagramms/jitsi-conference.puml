@@ -1,0 +1,517 @@
+@startuml
+
+scale max 1920 width
+left to right direction
+
+skinparam nodesep 25
+skinparam ranksep 50
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultFontName Tahoma
+skinparam defaultFontSize 12
+skinparam roundCorner 6
+skinparam dpi 150
+skinparam arrowColor black
+skinparam arrowThickness 0.5
+skinparam packageTitleAlignment left
+
+' oval
+skinparam usecase {
+  borderThickness 0.5
+}
+
+' rectangle
+skinparam rectangle {
+  borderThickness 0.5
+}
+
+' component
+skinparam component {
+  borderThickness 1
+}
+
+
+(JitsiConference)
+(AnalyticsAdapter)
+rectangle "AnalyticsEvents" as _AnalyticsEvents
+rectangle "AsyncQueue" as _AsyncQueue
+rectangle "AudioOutputProblemDetector" as _AudioOutputProblemDetector
+(audioRecorder)
+(authenticateAndUpgradeRole)
+(AuthenticationEvents)
+(AvgRTPStatsReporter)
+rectangle "BridgeChannel" as _BridgeChannel
+(browser)
+rectangle "BrowserCapabilities" as _BrowserCapabilities
+(CallStats)
+(CameraFacingMode)
+rectangle "Caps" as _Caps
+rectangle "ChatRoom" as _ChatRoom
+(ComponentsVersions)
+rectangle "ConnectionPlugin" as _ConnectionPlugin
+rectangle "ConnectionQuality" as _ConnectionQuality
+rectangle "ConnectionQualityEvents" as _ConnectionQualityEvents
+rectangle "DetectionEvents" as _DetectionEvents
+rectangle "e2eping" as _e2eping
+rectangle "E2ePingEvents" as _E2ePingEvents
+(EventEmitterForwarder)
+rectangle "Events" as _Events
+(GlobalOnErrorHandler)
+rectangle "IceFailedNotification" as _IceFailedNotification
+(JibriSession)
+(JingleSession)
+(JingleSessionPC)
+rectangle "JingleSessionState" as _JingleSessionState
+rectangle "JitsiConferenceErrors" as _JitsiConferenceErrors
+(JitsiConferenceEventManager)
+rectangle "JitsiConferenceEvents" as _JitsiConferenceEvents
+rectangle "JitsiConnectionErrors" as _JitsiConnectionErrors
+rectangle "JitsiConnectionEvents" as _JitsiConnectionEvents
+(JitsiLocalTrack)
+(JitsiParticipant)
+(JitsiRemoteTrack)
+(JitsiTrack)
+(JitsiTrackError)
+rectangle "JitsiTrackErrors" as _JitsiTrackErrors
+rectangle "JitsiTrackEvents" as _JitsiTrackEvents
+rectangle "JitsiTranscriptionStatus" as _JitsiTranscriptionStatus
+(JitsiVideoSIPGWSession)
+rectangle "Jvb121EventGenerator" as _Jvb121EventGenerator
+rectangle "Listenable" as _Listenable
+(LocalSdpMunger)
+(LocalStatsCollector)
+(MathUtil)
+rectangle "MediaType" as _MediaType
+(moderator)
+rectangle "NoAudioSignalDetection" as _NoAudioSignalDetection
+rectangle "P2PDominantSpeakerDetection" as _P2PDominantSpeakerDetection
+rectangle "ParticipantConnectionStatus" as _ParticipantConnectionStatus
+(RandomUtil)
+(RecordingManager)
+(recordingResult)
+(recordingXMLUtils)
+(Resolutions)
+(Retry)
+(RTC)
+(RTCEvents)
+(RTCUtils)
+(RTPStatsCollector)
+rectangle "rttmonitor" as _rttmonitor
+rectangle "RtxModifier" as _RtxModifier
+(ScreenObtainer)
+(ScriptUtil)
+(SDP)
+rectangle "SdpConsistency" as _SdpConsistency
+(SDPDiffer)
+rectangle "SdpTransformUtil" as _SdpTransformUtil
+(SDPUtil)
+(Settings)
+rectangle "SignalingEvents" as _SignalingEvents
+rectangle "SignalingLayer" as _SignalingLayer
+rectangle "SignalingLayerImpl" as _SignalingLayerImpl
+(SpeakerStats)
+(SpeakerStatsCollector)
+(statistics)
+(statistics/constants)
+(StringUtils)
+rectangle "strophe.emuc" as _strophe_emuc
+rectangle "strophe.jingle" as _strophe_jingle
+(strophe.logger)
+(strophe.ping)
+rectangle "strophe.rayo" as _strophe_rayo
+(strophe.util)
+rectangle "StropheBoshLastSuccess" as _StropheBoshLastSuccess
+(TalkMutedDetection)
+(TraceablePeerConnection)
+rectangle "TrackVADEmitter" as _TrackVADEmitter
+(transcriber)
+(UsernameGenerator)
+rectangle "VADAudioAnalyser" as _VADAudioAnalyser
+rectangle "VADNoiseDetection" as _VADNoiseDetection
+rectangle "VADTalkMutedDetection" as _VADTalkMutedDetection
+rectangle "VideoSIPGW" as _VideoSIPGW
+rectangle "VideoSIPGWConstants" as _VideoSIPGWConstants
+(VideoType)
+(WebAudioUtils)
+rectangle "xmpp" as _xmpp
+(XmppConnection)
+(XMPPEvents)
+
+package "Dependencies" {
+  [@jitsi]
+  [async]
+  [current-executing-script]
+  [jitsi-meet-logger]
+  [js-utils]
+  [lodash.isequal/lodash]
+  [sdp-transform]
+  [strophe.js/strophe]
+  [strophejs-plugin-disco]
+  [strophejs-plugin-stream-management]
+  [webrtc-adapter]
+}
+
+(AnalyticsAdapter) ----> _AnalyticsEvents
+(AnalyticsAdapter) --> (browser)
+(AnalyticsAdapter) ----> [jitsi-meet-logger]
+_AsyncQueue ----> [async]
+_AudioOutputProblemDetector ----> _AnalyticsEvents
+_AudioOutputProblemDetector ----> _ConnectionQualityEvents
+_AudioOutputProblemDetector ----> [jitsi-meet-logger]
+_AudioOutputProblemDetector --> _JitsiConferenceEvents
+_AudioOutputProblemDetector ----> _MediaType
+_AudioOutputProblemDetector --> (statistics)
+(audioRecorder) --> (recordingResult)
+(authenticateAndUpgradeRole) --> _JitsiConnectionEvents
+(authenticateAndUpgradeRole) --> _xmpp
+(AvgRTPStatsReporter) ----> _AnalyticsEvents
+(AvgRTPStatsReporter) --> (browser)
+(AvgRTPStatsReporter) ----> _ConnectionQualityEvents
+(AvgRTPStatsReporter) ----> [jitsi-meet-logger]
+(AvgRTPStatsReporter) --> _JitsiConferenceEvents
+(AvgRTPStatsReporter) ----> [lodash.isequal/lodash]
+(AvgRTPStatsReporter) ----> _MediaType
+(AvgRTPStatsReporter) --> (statistics)
+(AvgRTPStatsReporter) ----> (VideoType)
+_BridgeChannel ----> _AnalyticsEvents
+_BridgeChannel --> (GlobalOnErrorHandler)
+_BridgeChannel ----> [jitsi-meet-logger]
+_BridgeChannel ----> (RTCEvents)
+_BridgeChannel --> (statistics)
+(browser) --> _BrowserCapabilities
+_BrowserCapabilities ----> [jitsi-meet-logger]
+_BrowserCapabilities ----> [js-utils]
+(CallStats) --> (browser)
+(CallStats) --> (GlobalOnErrorHandler)
+(CallStats) ----> [jitsi-meet-logger]
+_Caps ----> [jitsi-meet-logger]
+_Caps --> _Listenable
+_Caps ----> [strophe.js/strophe]
+_Caps ----> (XMPPEvents)
+_ChatRoom --> (GlobalOnErrorHandler)
+_ChatRoom ----> [jitsi-meet-logger]
+_ChatRoom --> _JitsiTranscriptionStatus
+_ChatRoom --> _Listenable
+_ChatRoom ----> _MediaType
+_ChatRoom --> (moderator)
+_ChatRoom ----> [strophe.js/strophe]
+_ChatRoom --> (XmppConnection)
+_ChatRoom ----> (XMPPEvents)
+(ComponentsVersions) ----> [jitsi-meet-logger]
+(ComponentsVersions) --> (statistics)
+_ConnectionPlugin --> _Listenable
+_ConnectionQuality ----> _ConnectionQualityEvents
+_ConnectionQuality ----> [jitsi-meet-logger]
+_ConnectionQuality --> _JitsiConferenceEvents
+_ConnectionQuality ----> (Resolutions)
+_ConnectionQuality ----> (VideoType)
+_ConnectionQuality ----> (XMPPEvents)
+_e2eping ----> _AnalyticsEvents
+_e2eping ----> _E2ePingEvents
+_e2eping ----> [jitsi-meet-logger]
+_e2eping --> _JitsiConferenceEvents
+_e2eping --> (statistics)
+_IceFailedNotification ----> [jitsi-meet-logger]
+(JibriSession) --> (recordingXMLUtils)
+(JibriSession) ----> [strophe.js/strophe]
+(JingleSession) --> _JingleSessionState
+(JingleSession) ----> [jitsi-meet-logger]
+(JingleSessionPC) ----> _AnalyticsEvents
+(JingleSessionPC) --> _AsyncQueue
+(JingleSessionPC) --> (GlobalOnErrorHandler)
+(JingleSessionPC) --> (JingleSession)
+(JingleSessionPC) --> _JingleSessionState
+(JingleSessionPC) ----> [jitsi-meet-logger]
+(JingleSessionPC) ----> (RTCEvents)
+(JingleSessionPC) --> (SDP)
+(JingleSessionPC) --> (SDPDiffer)
+(JingleSessionPC) --> (SDPUtil)
+(JingleSessionPC) --> _SignalingLayerImpl
+(JingleSessionPC) --> (statistics)
+(JingleSessionPC) --> (StringUtils)
+(JingleSessionPC) ----> [strophe.js/strophe]
+(JingleSessionPC) --> (XmppConnection)
+(JingleSessionPC) ----> (XMPPEvents)
+(JitsiConference) --> _AnalyticsEvents
+(JitsiConference) --> _AudioOutputProblemDetector
+(JitsiConference) --> (authenticateAndUpgradeRole)
+(JitsiConference) --> (AvgRTPStatsReporter)
+(JitsiConference) --> (browser)
+(JitsiConference) --> (ComponentsVersions)
+(JitsiConference) --> _ConnectionQuality
+(JitsiConference) --> _DetectionEvents
+(JitsiConference) --> _e2eping
+(JitsiConference) --> (GlobalOnErrorHandler)
+(JitsiConference) --> _IceFailedNotification
+(JitsiConference) --> [jitsi-meet-logger]
+(JitsiConference) --> _JitsiConferenceErrors
+(JitsiConference) --> (JitsiConferenceEventManager)
+(JitsiConference) --> _JitsiConferenceEvents
+(JitsiConference) --> (JitsiParticipant)
+(JitsiConference) --> (JitsiTrackError)
+(JitsiConference) --> _JitsiTrackErrors
+(JitsiConference) --> _JitsiTrackEvents
+(JitsiConference) --> _Jvb121EventGenerator
+(JitsiConference) --> [lodash.isequal/lodash]
+(JitsiConference) --> _MediaType
+(JitsiConference) --> _NoAudioSignalDetection
+(JitsiConference) --> _P2PDominantSpeakerDetection
+(JitsiConference) --> _ParticipantConnectionStatus
+(JitsiConference) --> (RandomUtil)
+(JitsiConference) --> (RecordingManager)
+(JitsiConference) --> (RTC)
+(JitsiConference) --> (RTCEvents)
+(JitsiConference) --> _rttmonitor
+(JitsiConference) --> (Settings)
+(JitsiConference) --> (SpeakerStatsCollector)
+(JitsiConference) --> (statistics)
+(JitsiConference) --> [strophe.js/strophe]
+(JitsiConference) --> (TalkMutedDetection)
+(JitsiConference) --> (transcriber)
+(JitsiConference) --> _VADAudioAnalyser
+(JitsiConference) --> _VADNoiseDetection
+(JitsiConference) --> _VADTalkMutedDetection
+(JitsiConference) --> _VideoSIPGW
+(JitsiConference) --> _VideoSIPGWConstants
+(JitsiConference) --> (VideoType)
+(JitsiConference) --> _xmpp
+(JitsiConference) --> (XMPPEvents)
+(JitsiConferenceEventManager) --> _AnalyticsEvents
+(JitsiConferenceEventManager) --> (AuthenticationEvents)
+(JitsiConferenceEventManager) --> (EventEmitterForwarder)
+(JitsiConferenceEventManager) --> [jitsi-meet-logger]
+(JitsiConferenceEventManager) --> _JitsiConferenceErrors
+(JitsiConferenceEventManager) --> _JitsiConferenceEvents
+(JitsiConferenceEventManager) --> _MediaType
+(JitsiConferenceEventManager) --> (RTCEvents)
+(JitsiConferenceEventManager) --> (statistics)
+(JitsiConferenceEventManager) --> [strophe.js/strophe]
+(JitsiConferenceEventManager) --> (VideoType)
+(JitsiConferenceEventManager) --> (XMPPEvents)
+(JitsiLocalTrack) ----> _AnalyticsEvents
+(JitsiLocalTrack) --> (browser)
+(JitsiLocalTrack) ----> (CameraFacingMode)
+(JitsiLocalTrack) ----> [jitsi-meet-logger]
+(JitsiLocalTrack) --> (JitsiTrack)
+(JitsiLocalTrack) --> (JitsiTrackError)
+(JitsiLocalTrack) --> _JitsiTrackErrors
+(JitsiLocalTrack) --> _JitsiTrackEvents
+(JitsiLocalTrack) ----> _MediaType
+(JitsiLocalTrack) ----> (RTCEvents)
+(JitsiLocalTrack) --> (RTCUtils)
+(JitsiLocalTrack) --> (statistics)
+(JitsiLocalTrack) ----> (VideoType)
+(JitsiParticipant) --> _Caps
+(JitsiParticipant) --> [jitsi-meet-logger]
+(JitsiParticipant) --> _JitsiConferenceEvents
+(JitsiParticipant) --> _MediaType
+(JitsiParticipant) --> _ParticipantConnectionStatus
+(JitsiParticipant) --> [strophe.js/strophe]
+(JitsiRemoteTrack) ----> _AnalyticsEvents
+(JitsiRemoteTrack) ----> [jitsi-meet-logger]
+(JitsiRemoteTrack) --> (JitsiTrack)
+(JitsiRemoteTrack) --> _JitsiTrackEvents
+(JitsiRemoteTrack) ----> (RTCEvents)
+(JitsiRemoteTrack) --> (statistics)
+(JitsiTrack) ----> [jitsi-meet-logger]
+(JitsiTrack) --> _JitsiTrackEvents
+(JitsiTrack) ----> _MediaType
+(JitsiTrack) --> (RTCUtils)
+(JitsiTrackError) --> _JitsiTrackErrors
+(JitsiVideoSIPGWSession) ----> [jitsi-meet-logger]
+(JitsiVideoSIPGWSession) --> _Listenable
+(JitsiVideoSIPGWSession) ----> [strophe.js/strophe]
+(JitsiVideoSIPGWSession) --> _VideoSIPGWConstants
+_Jvb121EventGenerator ----> [jitsi-meet-logger]
+_Jvb121EventGenerator --> _JitsiConferenceEvents
+(LocalSdpMunger) ----> [jitsi-meet-logger]
+(LocalSdpMunger) ----> _MediaType
+(LocalSdpMunger) --> _SdpTransformUtil
+(moderator) ----> (AuthenticationEvents)
+(moderator) --> (GlobalOnErrorHandler)
+(moderator) ----> [jitsi-meet-logger]
+(moderator) --> (Settings)
+(moderator) ----> [strophe.js/strophe]
+(moderator) ----> (XMPPEvents)
+_NoAudioSignalDetection --> _DetectionEvents
+_NoAudioSignalDetection --> _JitsiConferenceEvents
+_P2PDominantSpeakerDetection --> _JitsiConferenceEvents
+_P2PDominantSpeakerDetection ----> (RTCEvents)
+_ParticipantConnectionStatus ----> _AnalyticsEvents
+_ParticipantConnectionStatus --> (browser)
+_ParticipantConnectionStatus ----> [jitsi-meet-logger]
+_ParticipantConnectionStatus --> _JitsiConferenceEvents
+_ParticipantConnectionStatus --> _JitsiTrackEvents
+_ParticipantConnectionStatus ----> _MediaType
+_ParticipantConnectionStatus ----> (RTCEvents)
+_ParticipantConnectionStatus --> (statistics)
+(RecordingManager) --> (JibriSession)
+(RecordingManager) ----> [jitsi-meet-logger]
+(RecordingManager) --> (recordingXMLUtils)
+(RecordingManager) ----> (XMPPEvents)
+(RTC) --> _BridgeChannel
+(RTC) --> (browser)
+(RTC) --> (GlobalOnErrorHandler)
+(RTC) ----> [jitsi-meet-logger]
+(RTC) --> _JitsiConferenceEvents
+(RTC) --> (JitsiLocalTrack)
+(RTC) --> _Listenable
+(RTC) --> (MathUtil)
+(RTC) ----> _MediaType
+(RTC) ----> (RTCEvents)
+(RTC) --> (RTCUtils)
+(RTC) --> (statistics)
+(RTC) --> (TraceablePeerConnection)
+(RTC) ----> (VideoType)
+(RTCUtils) ----> _AnalyticsEvents
+(RTCUtils) --> (browser)
+(RTCUtils) ----> (CameraFacingMode)
+(RTCUtils) --> (GlobalOnErrorHandler)
+(RTCUtils) ----> [jitsi-meet-logger]
+(RTCUtils) --> (JitsiTrackError)
+(RTCUtils) --> _Listenable
+(RTCUtils) ----> _MediaType
+(RTCUtils) ----> (Resolutions)
+(RTCUtils) ----> (RTCEvents)
+(RTCUtils) --> (ScreenObtainer)
+(RTCUtils) --> (SDPUtil)
+(RTCUtils) --> (statistics)
+(RTCUtils) ----> (VideoType)
+(RTCUtils) ----> [webrtc-adapter]
+(RTPStatsCollector) --> (browser)
+(RTPStatsCollector) ----> _Events
+(RTPStatsCollector) --> (GlobalOnErrorHandler)
+(RTPStatsCollector) ----> [jitsi-meet-logger]
+(RTPStatsCollector) ----> [js-utils]
+(RTPStatsCollector) ----> _MediaType
+_rttmonitor ----> _AnalyticsEvents
+_rttmonitor --> (browser)
+_rttmonitor ----> [jitsi-meet-logger]
+_rttmonitor --> (RTCUtils)
+_rttmonitor --> (statistics)
+_RtxModifier ----> [jitsi-meet-logger]
+_RtxModifier --> _SdpTransformUtil
+_RtxModifier --> (SDPUtil)
+(ScreenObtainer) --> (browser)
+(ScreenObtainer) --> (GlobalOnErrorHandler)
+(ScreenObtainer) ----> [jitsi-meet-logger]
+(ScreenObtainer) --> (JitsiTrackError)
+(ScreenObtainer) --> _JitsiTrackErrors
+(ScriptUtil) ----> [current-executing-script]
+(SDP) --> (SDPUtil)
+_SdpConsistency ----> [jitsi-meet-logger]
+_SdpConsistency --> _SdpTransformUtil
+(SDPDiffer) --> (SDPUtil)
+_SdpTransformUtil ----> [sdp-transform]
+(SDPUtil) --> (browser)
+(SDPUtil) ----> [jitsi-meet-logger]
+(SDPUtil) --> (RandomUtil)
+(Settings) ----> [jitsi-meet-logger]
+(Settings) --> (UsernameGenerator)
+_SignalingLayer ----> _Listenable
+_SignalingLayerImpl ----> [jitsi-meet-logger]
+_SignalingLayerImpl ----> _MediaType
+_SignalingLayerImpl ----> _SignalingEvents
+_SignalingLayerImpl ----> _SignalingLayer
+(SpeakerStatsCollector) --> _JitsiConferenceEvents
+(SpeakerStatsCollector) --> (SpeakerStats)
+(SpeakerStatsCollector) ----> (XMPPEvents)
+(statistics) --> (AnalyticsAdapter)
+(statistics) ----> _AnalyticsEvents
+(statistics) --> (browser)
+(statistics) --> (CallStats)
+(statistics) ----> _Events
+(statistics) ----> [jitsi-meet-logger]
+(statistics) --> (JitsiTrackError)
+(statistics) --> (LocalStatsCollector)
+(statistics) --> (RTPStatsCollector)
+(statistics) --> (ScriptUtil)
+(statistics) ----> (statistics/constants)
+_strophe_emuc --> _ChatRoom
+_strophe_emuc --> _ConnectionPlugin
+_strophe_emuc ----> [jitsi-meet-logger]
+_strophe_emuc ----> [strophe.js/strophe]
+_strophe_emuc ----> (XMPPEvents)
+_strophe_jingle ----> _AnalyticsEvents
+_strophe_jingle --> _ConnectionPlugin
+_strophe_jingle --> (GlobalOnErrorHandler)
+_strophe_jingle --> (JingleSessionPC)
+_strophe_jingle ----> [jitsi-meet-logger]
+_strophe_jingle --> (RandomUtil)
+_strophe_jingle --> (statistics)
+_strophe_jingle ----> [strophe.js/strophe]
+_strophe_jingle ----> (XMPPEvents)
+(strophe.logger) --> _ConnectionPlugin
+(strophe.logger) ----> [strophe.js/strophe]
+(strophe.ping) --> _ConnectionPlugin
+(strophe.ping) --> (GlobalOnErrorHandler)
+(strophe.ping) ----> [jitsi-meet-logger]
+(strophe.ping) ----> [strophe.js/strophe]
+_strophe_rayo --> _ConnectionPlugin
+_strophe_rayo ----> [jitsi-meet-logger]
+_strophe_rayo ----> [strophe.js/strophe]
+(strophe.util) --> (GlobalOnErrorHandler)
+(strophe.util) ----> [jitsi-meet-logger]
+(strophe.util) ----> [strophe.js/strophe]
+(TalkMutedDetection) --> _JitsiConferenceEvents
+(TraceablePeerConnection) ----> [@jitsi]
+(TraceablePeerConnection) --> (browser)
+(TraceablePeerConnection) --> (GlobalOnErrorHandler)
+(TraceablePeerConnection) ----> [jitsi-meet-logger]
+(TraceablePeerConnection) --> (JitsiRemoteTrack)
+(TraceablePeerConnection) --> _JitsiTrackEvents
+(TraceablePeerConnection) --> (LocalSdpMunger)
+(TraceablePeerConnection) ----> _MediaType
+(TraceablePeerConnection) --> (RTC)
+(TraceablePeerConnection) ----> (RTCEvents)
+(TraceablePeerConnection) --> (RTCUtils)
+(TraceablePeerConnection) --> _RtxModifier
+(TraceablePeerConnection) --> (SDP)
+(TraceablePeerConnection) ----> [sdp-transform]
+(TraceablePeerConnection) --> _SdpConsistency
+(TraceablePeerConnection) --> _SdpTransformUtil
+(TraceablePeerConnection) --> (SDPUtil)
+(TraceablePeerConnection) ----> _SignalingEvents
+_TrackVADEmitter --> _DetectionEvents
+_TrackVADEmitter --> (RTC)
+_TrackVADEmitter --> (WebAudioUtils)
+(transcriber) --> (audioRecorder)
+(UsernameGenerator) --> (RandomUtil)
+_VADAudioAnalyser --> _DetectionEvents
+_VADAudioAnalyser ----> [jitsi-meet-logger]
+_VADAudioAnalyser --> _JitsiConferenceEvents
+_VADAudioAnalyser --> _TrackVADEmitter
+_VADNoiseDetection --> _DetectionEvents
+_VADNoiseDetection --> (MathUtil)
+_VADTalkMutedDetection --> _DetectionEvents
+_VADTalkMutedDetection --> (MathUtil)
+_VideoSIPGW ----> [jitsi-meet-logger]
+_VideoSIPGW --> (JitsiVideoSIPGWSession)
+_VideoSIPGW --> _VideoSIPGWConstants
+_VideoSIPGW ----> (XMPPEvents)
+_xmpp --> (browser)
+_xmpp --> _Caps
+_xmpp --> (GlobalOnErrorHandler)
+_xmpp ----> [jitsi-meet-logger]
+_xmpp --> _JitsiConnectionErrors
+_xmpp --> _JitsiConnectionEvents
+_xmpp --> _Listenable
+_xmpp --> (RandomUtil)
+_xmpp --> _strophe_emuc
+_xmpp --> _strophe_jingle
+_xmpp ----> [strophe.js/strophe]
+_xmpp --> (strophe.logger)
+_xmpp --> (strophe.ping)
+_xmpp --> _strophe_rayo
+_xmpp --> (strophe.util)
+_xmpp ----> [strophejs-plugin-disco]
+_xmpp --> (XmppConnection)
+_xmpp ----> (XMPPEvents)
+(XmppConnection) ----> [jitsi-meet-logger]
+(XmppConnection) --> _Listenable
+(XmppConnection) --> (Retry)
+(XmppConnection) ----> [strophe.js/strophe]
+(XmppConnection) --> _StropheBoshLastSuccess
+(XmppConnection) ----> [strophejs-plugin-stream-management]
+
+@enduml
