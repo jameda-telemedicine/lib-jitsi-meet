@@ -113,6 +113,9 @@ export class TPCUtils {
             return desc;
         }
         const sdp = transform.parse(desc.sdp);
+
+        console.log('Enrico #######################################: sdp', sdp);
+
         const idx = sdp.media.findIndex(mline => mline.type === 'video');
 
         if (sdp.media[idx].rids && (sdp.media[idx].simulcast_03 || sdp.media[idx].simulcast)) {
@@ -367,6 +370,7 @@ export class TPCUtils {
             .filter(track => track.getType() === mediaType);
 
         if (active) {
+            console.log('Enrico #######################################: transceiver', transceivers.length);
             transceivers.forEach(transceiver => {
                 if (localTracks.length) {
                     transceiver.direction = 'sendrecv';
