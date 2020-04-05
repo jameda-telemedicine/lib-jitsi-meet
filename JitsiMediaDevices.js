@@ -249,6 +249,13 @@ class JitsiMediaDevices {
     emitEvent(event, ...args) {
         this._eventEmitter.emit(event, ...args);
     }
+
+    /**
+     * s
+     */
+    supportsVideo() {
+        return true;
+    }
 }
 
 export default new JitsiMediaDevices();
