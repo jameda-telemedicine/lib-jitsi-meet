@@ -1977,7 +1977,10 @@ TraceablePeerConnection.prototype.setRemoteDescription = function(description) {
         const currentDescription = this.peerconnection.remoteDescription;
 
         // eslint-disable-next-line no-param-reassign
+        console.log('Enrico ############################## sdp', description);
+
         description = this.interop.toUnifiedPlan(description, currentDescription);
+
         this.trace(
             'setRemoteDescription::postTransform (Unified)',
             dumpSDP(description));
