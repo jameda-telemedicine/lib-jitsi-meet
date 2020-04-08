@@ -253,17 +253,11 @@ export class TPCUtils {
         }
 
         logger.debug(`Removing ${localTrack} on ${this.pc}`);
-        transceiver.sender.replaceTrack(null)
+
+        return transceiver.sender.replaceTrack(null)
             .then(() => {
                 this.pc.localTracks.delete(localTrack.rtcId);
                 this.pc.localSSRCs.delete(localTrack.rtcId);
-
-                return true;
-            })
-            .catch(err => {
-                logger.error(`Mute track failed for ${mediaType} track on ${this.pc}, ${err}`);
-
-                return false;
             });
     }
 
