@@ -154,7 +154,7 @@ export default class BrowserCapabilities extends BrowserDetection {
      * @returns {boolean}
      */
     supportsRtx() {
-        return !this.isFirefox() && !this.usesUnifiedPlan();
+        return !this.isFirefox();
     }
 
     /**
@@ -259,6 +259,15 @@ export default class BrowserCapabilities extends BrowserDetection {
             || (typeof navigator.mediaDevices !== 'undefined'
                 && typeof navigator.mediaDevices.getDisplayMedia
                     !== 'undefined');
+    }
+
+    /**
+     * Checks if the browser supports insertable streams, needed for E2EE.
+     * @returns {boolean} {@code true} if the browser supports insertable streams.
+     */
+    supportsInsertableStreams() {
+        return Boolean(typeof window.RTCRtpSender !== 'undefined'
+            && window.RTCRtpSender.prototype.createEncodedVideoStreams);
     }
 
     /**
