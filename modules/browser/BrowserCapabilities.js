@@ -308,7 +308,7 @@ export default class BrowserCapabilities extends BrowserDetection {
     peerIsSafari() {
         const browser = this._getPeerBrowserName();
 
-        return browser === 'Safari';
+        return browser === 'Safari' || browser === 'Mobile Safari';
     }
 
     /**

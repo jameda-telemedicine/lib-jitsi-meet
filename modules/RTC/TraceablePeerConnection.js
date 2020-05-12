@@ -2378,20 +2378,20 @@ const _fixAnswerRFC4145Setup = function(offer, answer) {
     // establishment to exceed at least 1 second. To work around Chrome's
     // idiosyncracy, don't allow it to send a ClientHello i.e. change its
     // default choice of setup:active to setup:passive.
-    if (offer && answer
-            && offer.media && answer.media
-            && offer.media.length === answer.media.length) {
-        answer.media.forEach((a, i) => {
-            if (SDPUtil.findLine(
-                    offer.media[i],
-                    'a=setup:actpass',
-                    offer.session)) {
-                answer.media[i]
-                    = a.replace(/a=setup:active/g, 'a=setup:passive');
-            }
-        });
-        answer.raw = answer.session + answer.media.join('');
-    }
+    // if (offer && answer
+    //         && offer.media && answer.media
+    //         && offer.media.length === answer.media.length) {
+    //     // answer.media.forEach((a, i) => {
+    //         // if (SDPUtil.findLine(
+    //         //         offer.media[i],
+    //         //         'a=setup:actpass',
+    //         //         offer.session)) {
+    //         //     answer.media[i]
+    //         //         = a.replace(/a=setup:active/g, 'a=setup:passive');
+    //         // }
+    //     //});
+    //     answer.raw = answer.session + answer.media.join('');
+    // }
 };
 
 TraceablePeerConnection.prototype.createAnswer = function(constraints) {

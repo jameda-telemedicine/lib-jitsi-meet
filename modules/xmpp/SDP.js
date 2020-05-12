@@ -610,7 +610,9 @@ SDP.prototype.jingle2media = function(content) {
     if (content.find('>transport>fingerprint').length
             || desc.find('encryption').length) {
         tmp.proto = sctp.length ? 'DTLS/SCTP' : 'RTP/SAVPF';
+
     } else {
+        console.log('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx Hallloo': );
         tmp.proto = 'RTP/AVPF';
     }
     if (sctp.length) {
