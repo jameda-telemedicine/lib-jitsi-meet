@@ -99,10 +99,6 @@ const JINGLE_SI_TIMEOUT = 5000;
  * "Math.random() < forceJVB121Ratio" will determine whether a 2 people
  * conference should be moved to the JVB instead of P2P. The decision is made on
  * the responder side, after ICE succeeds on the P2P connection.
- * @param {*} [options.config.openBridgeChannel] Which kind of communication to
- * open with the videobridge. Values can be "datachannel", "websocket", true
- * (treat it as "datachannel"), undefined (treat it as "datachannel") and false
- * (don't open any channel).
  * @constructor
  *
  * FIXME Make all methods which are called from lib-internal classes
@@ -942,27 +938,23 @@ JitsiConference.prototype.getTranscriptionStatus = function() {
 
 /**
  * Adds JitsiLocalTrack object to the conference.
- * @param track the JitsiLocalTrack object.
+ * @param {JitsiLocalTrack} track the JitsiLocalTrack object.
  * @returns {Promise<JitsiLocalTrack>}
  * @throws {Error} if the specified track is a video track and there is already
  * another video track in the conference.
  */
 JitsiConference.prototype.addTrack = function(track) {
-    if (track.isVideoTrack()) {
-        // Ensure there's exactly 1 local video track in the conference.
-        const localVideoTrack = this.rtc.getLocalVideoTrack();
+    const mediaType = track.getType();
+    const localTracks = this.rtc.getLocalTracks(mediaType);
 
-        if (localVideoTrack) {
-            // Don't be excessively harsh and severe if the API client happens
-            // to attempt to add the same local video track twice.
-            if (track === localVideoTrack) {
-                return Promise.resolve(track);
-            }
-
-            return Promise.reject(new Error(
-                'cannot add second video track to the conference'));
-
+    // Ensure there's exactly 1 local track of each media type in the conference.
+    if (localTracks.length > 0) {
+        // Don't be excessively harsh and severe if the API client happens to attempt to add the same local track twice.
+        if (track === localTracks[0]) {
+            return Promise.resolve(track);
         }
+
+        return Promise.reject(new Error(`Cannot add second ${mediaType} track to the conference`));
     }
 
     return this.replaceTrack(null, track);
@@ -2003,23 +1995,12 @@ JitsiConference.prototype._setBridgeChannel = function(offerIq, pc) {
         wsUrl = webSocket[0].getAttribute('url');
     }
 
-    let bridgeChannelType;
-
-    switch (this.options.config.openBridgeChannel) {
-    case 'datachannel':
-    case true:
-    case undefined:
-        bridgeChannelType = 'datachannel';
-        break;
-    case 'websocket':
-        bridgeChannelType = 'websocket';
-        break;
-    }
-
-    if (bridgeChannelType === 'datachannel') {
-        this.rtc.initializeBridgeChannel(pc, null);
-    } else if (bridgeChannelType === 'websocket' && wsUrl) {
+    if (wsUrl) {
+        // If the offer contains a websocket use it.
         this.rtc.initializeBridgeChannel(null, wsUrl);
+    } else {
+        // Otherwise, fall back to an attempt to use SCTP.
+        this.rtc.initializeBridgeChannel(pc, null);
     }
 };
 
@@ -2860,8 +2841,7 @@ JitsiConference.prototype._updateProperties = function(properties = {}) {
             'bridge-count',
 
             // The conference creation time (set by jicofo).
-            'created-ms',
-            'octo-enabled'
+            'created-ms'
         ];
 
         analyticsKeys.forEach(key => {
