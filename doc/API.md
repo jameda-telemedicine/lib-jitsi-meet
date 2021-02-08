@@ -48,7 +48,8 @@ The `options` parameter is JS object with the following properties:
     - `callStatsCustomScriptUrl` - (optional) custom url to access callstats client script
     - `disableRtx` - (optional) boolean property (default to false).  Enables/disable the use of RTX.
     - `disabledCodec` - the mime type of the code that should not be negotiated on the peerconnection.
-    - `preferredCodec` the mime type of the codec that needs to be made the preferred codec for the connection.
+    - `preferredCodec` - the mime type of the codec that needs to be made the preferred codec for the connection.
+    - `useTurnUdp` - boolean property (default false). Enables use of turn over udp for jvb. It is disabled because not very useful (if the client can use udp, it likely can connect to jvb directly over udp too; but it can be useful to still enable udp turn when an udp turn is known to be whitelisted on a network)
     - `disableH264` - __DEPRECATED__. Use `disabledCodec` instead.
     - `preferH264` - __DEPRECATED__. Use `preferredCodec` instead.
 
@@ -122,6 +123,7 @@ JitsiMeetJS.setLogLevel(JitsiMeetJS.logLevels.ERROR);
         - `LAST_N_ENDPOINTS_CHANGED` - last n set was changed (parameters - leavingEndpointIds(array) ids of users leaving lastN, enteringEndpointIds(array) ids of users entering lastN)
         - `CONFERENCE_JOINED` - notifies the local user that he joined the conference successfully. (no parameters)
         - `CONFERENCE_LEFT` - notifies the local user that he left the conference successfully. (no parameters)
+        - `CONFERENCE_UNIQUE_ID_SET` - notifies the local user that the unique id for a meeting has been set. (parameters - meetingId(string))
         - `DTMF_SUPPORT_CHANGED` - notifies if at least one user supports DTMF. (parameters - supports(boolean))
         - `USER_ROLE_CHANGED` - notifies that role of some user changed. (parameters - id(string), role(string))
         - `USER_STATUS_CHANGED` - notifies that status of some user changed. (parameters - id(string), status(string))
@@ -231,6 +233,9 @@ This objects represents the server connection. You can create new `JitsiConnecti
             - `interval` - how often to send ping requests, default: 10000 (10 seconds)
             - `timeout` - the time to wait for ping responses, default: 5000 (5 seconds)
             - `threshold` - how many ping failures will be tolerated before the connection is killed, default: 2
+        7. websocketKeepAlive - (optional) Setting the interval of websocket keepalive GET requests. By default, the value is 1 minute(which means a minute + a minute of jitter).
+           Used for certain deployments where a stick table entry needs to be kept alive we use those GET requests.
+        8. websocketKeepAliveUrl - (optional) Specific Url to use for the websocket keepalive GET requests.
 
 2. `connect(options)` - establish server connection
     - `options` - JS Object with `id` and `password` properties.
@@ -446,18 +451,22 @@ Throws NetworkError or InvalidStateError or Error if the operation fails.
 33. `pinParticipant(participantId)` - Elects the participant with the given id to be the pinned participant in order to always receive video for this participant (even when last n is enabled).
     - `participantId` - the identifier of the participant
 
+34. `replaceTrack` - replaces the track currently being used as the sender's source with a new MediaStreamTrack. The new track must be of the same media kind (audio, video, etc) and switching the track should not require negotiation. `replaceTrack(oldTrack, newTrack)`
+
 Throws NetworkError or InvalidStateError or Error if the operation fails.
 
-34. `setReceiverVideoConstraint(resolution)` - set the desired resolution to get from JVB (180, 360, 720, 1080, etc).
+35. `setReceiverVideoConstraint(resolution)` - set the desired resolution to get from JVB (180, 360, 720, 1080, etc).
     You should use that method if you are using simulcast.
 
-35. `setSenderVideoConstraint(resolution)` - set the desired resolution to send to JVB or the peer (180, 360, 720).
+36. `setSenderVideoConstraint(resolution)` - set the desired resolution to send to JVB or the peer (180, 360, 720).
 
-36. `isHidden` - checks if local user has joined as a "hidden" user. This is a specialized role used for integrations.
+37. `isHidden` - checks if local user has joined as a "hidden" user. This is a specialized role used for integrations.
 
-37. `setLocalParticipantProperty(propertyKey, propertyValue)` - used to set a custom propery to the local participant("fullName": "Full Name", favoriteColor: "red", "userId": 234). Also this can be used to modify an already set custom property.
+38. `setLocalParticipantProperty(propertyKey, propertyValue)` - used to set a custom propery to the local participant("fullName": "Full Name", favoriteColor: "red", "userId": 234). Also this can be used to modify an already set custom property.
     - `propertyKey` - string - custom property name
     - `propertyValue` - string - custom property value
+
+39. `getParticipants()` - Retrieves an array of all participants in this conference.
 
 JitsiTrack
 ======

@@ -26,21 +26,6 @@ const PING_DEFAULT_TIMEOUT = 5000;
 const PING_DEFAULT_THRESHOLD = 2;
 
 /**
- * How often to send ping requests.
- */
-let pingInterval;
-
-/**
- * The time to wait for ping responses.
- */
-let pingTimeout;
-
-/**
- * How many ping failures will be tolerated before the connection is killed.
- */
-let pingThreshold;
-
-/**
  * XEP-0199 ping plugin.
  *
  * Registers "urn:xmpp:ping" namespace under Strophe.NS.PING.
@@ -120,35 +105,37 @@ export default class PingConnectionPlugin extends ConnectionPlugin {
             // when there were some server responses in the interval since the last time we checked (_lastServerCheck)
             // let's skip the ping
 
-            // server response is measured on raw input and ping response time is measured after all the xmpp
-            // processing is done, and when the last server response is a ping there can be slight misalignment of the
-            // times, we give it 100ms for that processing.
-            if (this._getTimeSinceLastServerResponse() + 100 < new Date() - this._lastServerCheck) {
+            const now = Date.now();
+
+            if (this._getTimeSinceLastServerResponse() < now - this._lastServerCheck) {
                 // do this just to keep in sync the intervals so we can detect suspended device
                 this._addPingExecutionTimestamp();
 
-                this._lastServerCheck = new Date();
+                this._lastServerCheck = now;
                 this.failedPings = 0;
 
                 return;
             }
 
             this.ping(remoteJid, () => {
-                this._lastServerCheck = new Date();
+                // server response is measured on raw input and ping response time is measured after all the xmpp
+                // processing is done in js, so there can be some misalignment when we do the check above.
+                // That's why we store the last time we got the response
+                this._lastServerCheck = this._getTimeSinceLastServerResponse() + Date.now();
 
                 this.failedPings = 0;
             }, error => {
                 this.failedPings += 1;
                 const errmsg = `Ping ${error ? 'error' : 'timeout'}`;
 
-                if (this.failedPings >= pingThreshold) {
+                if (this.failedPings >= this.pingThreshold) {
                     GlobalOnErrorHandler.callErrorHandler(new Error(errmsg));
                     logger.error(errmsg, error);
                     this._onPingThresholdExceeded && this._onPingThresholdExceeded();
                 } else {
                     logger.warn(errmsg, error);
                 }
-            }, pingTimeout);
+            }, this.pingTimeout);
         }, this.pingInterval);
         logger.info(`XMPP pings will be sent every ${this.pingInterval} ms`);
     }
@@ -211,7 +198,7 @@ export default class PingConnectionPlugin extends ConnectionPlugin {
         // remove the interval between the ping sent
         // this way in normal execution there is no suspend and the return
         // will be 0 or close to 0.
-        maxInterval -= pingInterval;
+        maxInterval -= this.pingInterval;
 
         // make sure we do not return less than 0
         return Math.max(maxInterval, 0);
