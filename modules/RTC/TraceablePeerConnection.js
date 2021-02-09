@@ -287,46 +287,6 @@ export default function TraceablePeerConnection(
      */
     this.senderVideoMaxHeight = null;
 
-    // We currently support preferring/disabling video codecs only.
-    const getCodecMimeType = codec => {
-        if (typeof codec === 'string') {
-            return Object.values(CodecMimeType).find(value => value === codec.toLowerCase());
-        }
-
-        return null;
-    };
-
-    // Set the codec preference that will be applied on the SDP based on the config.js settings.
-    let preferredCodec = getCodecMimeType(
-        this.options.preferredCodec || (this.options.preferH264 && CodecMimeType.H264)
-    );
-
-    // Do not prefer VP9 on Firefox because of the following bug.
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=1633876
-    if (browser.isFirefox() && preferredCodec === CodecMimeType.VP9) {
-        preferredCodec = null;
-    }
-
-    // Determine the codec that needs to be disabled based on config.js settings.
-    let disabledCodec = getCodecMimeType(
-        this.options.disabledCodec || (this.options.disableH264 && CodecMimeType.H264)
-    );
-
-    // Make sure we don't disable VP8 since it is a mandatory codec.
-    if (disabledCodec === CodecMimeType.VP8) {
-        logger.warn('Disabling VP8 is not permitted, setting is ignored!');
-        disabledCodec = null;
-    }
-
-    if (preferredCodec || disabledCodec) {
-        // If both enable and disable are set for the same codec, disable setting will prevail.
-        this.codecPreference = {
-            enable: disabledCodec === null,
-            mediaType: MediaType.VIDEO,
-            mimeType: disabledCodec ? disabledCodec : preferredCodec
-        };
-    }
-
     // override as desired
     this.trace = (what, info) => {
         logger.debug(what, info);
@@ -804,7 +764,7 @@ TraceablePeerConnection.prototype._remoteTrackAdded = function(stream, track, tr
             mediaLines = remoteSDP.media.filter(mls => SDPUtil.findLine(mls, `a=mid:${mid}`));
         } else {
             mediaLines = remoteSDP.media.filter(mls => {
-                const msid = SDPUtil.findLine(mls, 'a=msid');
+                const msid = SDPUtil.findLine(mls, 'a=msid:');
 
                 return typeof msid !== 'undefined' && streamId === msid.substring(7).split(' ')[0];
             });
@@ -1534,6 +1494,18 @@ TraceablePeerConnection.prototype._getSSRC = function(rtcId) {
 };
 
 /**
+ * Checks if screensharing is in progress.
+ *
+ * @returns {boolean}  Returns true if a desktop track has been added to the
+ * peerconnection, false otherwise.
+ */
+TraceablePeerConnection.prototype._isSharingScreen = function() {
+    const track = this.getLocalVideoTrack();
+
+    return track && track.videoType === VideoType.DESKTOP;
+};
+
+/**
  * Munges the order of the codecs in the SDP passed based on the preference
  * set through config.js settings. All instances of the specified codec are
  * moved up to the top of the list when it is preferred. The specified codec
@@ -1560,6 +1532,19 @@ TraceablePeerConnection.prototype._mungeCodecOrder = function(description) {
         // TODO - add check for mobile browsers once js-utils provides that check.
         if (this.codecPreference.mimeType === CodecMimeType.H264 && browser.isReactNative() && this.isP2P) {
             SDPUtil.stripCodec(mLine, this.codecPreference.mimeType, true /* high profile */);
+        }
+
+        // Set the max bitrate here on the SDP so that the configured max. bitrate is effective
+        // as soon as the browser switches to VP9.
+        if (this.codecPreference.mimeType === CodecMimeType.VP9) {
+            const bitrates = Object.values(this.videoBitrates.VP9 || this.videoBitrates);
+
+            // Use only the HD bitrate for now as there is no API available yet for configuring
+            // the bitrates on the individual SVC layers.
+            mLine.bandwidth = [ {
+                type: 'AS',
+                limit: this._isSharingScreen() ? HD_BITRATE : Math.floor(bitrates[2] / 1000)
+            } ];
         }
     } else {
         SDPUtil.stripCodec(mLine, this.codecPreference.mimeType);
@@ -1742,6 +1727,64 @@ TraceablePeerConnection.prototype._assertTrackBelongs = function(
     }
 
     return doesBelong;
+};
+
+/**
+ * Returns the codec that is configured on the client as the preferred video codec.
+ * This takes into account the current order of codecs in the local description sdp.
+ *
+ * @returns {CodecMimeType} The codec that is set as the preferred codec to receive
+ * video in the local SDP.
+ */
+TraceablePeerConnection.prototype.getConfiguredVideoCodec = function() {
+    const sdp = this.localDescription.sdp;
+    const defaultCodec = CodecMimeType.VP8;
+
+    if (!sdp) {
+        return defaultCodec;
+    }
+    const parsedSdp = transform.parse(sdp);
+    const mLine = parsedSdp.media.find(m => m.type === MediaType.VIDEO);
+    const codec = mLine.rtp[0].codec;
+
+    if (codec) {
+        return Object.values(CodecMimeType).find(value => value === codec.toLowerCase());
+    }
+
+    return defaultCodec;
+};
+
+/**
+ * Sets the codec preference on the peerconnection. The codec preference goes into effect when
+ * the next renegotiation happens.
+ *
+ * @param {CodecMimeType} preferredCodec the preferred codec.
+ * @param {CodecMimeType} disabledCodec the codec that needs to be disabled.
+ * @returns {void}
+ */
+TraceablePeerConnection.prototype.setVideoCodecs = function(preferredCodec = null, disabledCodec = null) {
+    // If both enable and disable are set, disable settings will prevail.
+    const enable = disabledCodec === null;
+    const mimeType = disabledCodec ? disabledCodec : preferredCodec;
+
+    if (this.codecPreference && (preferredCodec || disabledCodec)) {
+        this.codecPreference.enable = enable;
+        this.codecPreference.mimeType = mimeType;
+    } else if (preferredCodec || disabledCodec) {
+        this.codecPreference = {
+            enable,
+            mediaType: MediaType.VIDEO,
+            mimeType
+        };
+    } else {
+        logger.warn(`Invalid codec settings: preferred ${preferredCodec}, disabled ${disabledCodec},
+            atleast one value is needed`);
+    }
+
+    if (browser.supportsCodecPreferences()) {
+        // TODO implement codec preference using RTCRtpTransceiver.setCodecPreferences()
+        // We are using SDP munging for now until all browsers support this.
+    }
 };
 
 /**
@@ -2101,9 +2144,9 @@ TraceablePeerConnection.prototype.setSenderVideoDegradationPreference = function
  * @returns {Promise<void>}
  */
 TraceablePeerConnection.prototype.setMaxBitRate = function() {
-    if (!this.peerconnection.getSenders) {
-        logger.debug('Browser doesn\'t support RTCRtpSender');
-
+    // For VP9, max bitrate is configured by setting b=AS value in SDP. Browsers do
+    // not yet support setting max bitrates for individual VP9 SVC layers.
+    if (this.getConfiguredVideoCodec() === CodecMimeType.VP9 || !window.RTCRtpSender) {
         return Promise.resolve();
     }
     const localVideoTrack = this.getLocalVideoTrack();
@@ -2149,7 +2192,7 @@ TraceablePeerConnection.prototype.setMaxBitRate = function() {
                     // FIXME the top 'isSimulcastOn' condition is confusing for screensharing, because
                     // if capScreenshareBitrate option is enabled then the simulcast is turned off
                     bitrate = this.options.capScreenshareBitrate
-                        ? presenterEnabled ? this.videoBitrates.high : DESKTOP_SHARE_RATE
+                        ? presenterEnabled ? HD_BITRATE : DESKTOP_SHARE_RATE
 
                         // Remove the bitrate config if not capScreenshareBitrate:
                         // When switching from camera to desktop and videoQuality.maxBitratesVideo were set,
@@ -2516,17 +2559,6 @@ TraceablePeerConnection.prototype.createOffer = function(constraints) {
     return this._createOfferOrAnswer(true /* offer */, constraints);
 };
 
-/**
- * Checks if a camera track has been added to the peerconnection
- * @param {TraceablePeerConnection} peerConnection
- * @return {boolean} <tt>true</tt> if the peerconnection has
- * a camera track for its video source <tt>false</tt> otherwise.
- */
-function hasCameraTrack(peerConnection) {
-    return peerConnection.getLocalTracks()
-        .some(t => t.videoType === 'camera');
-}
-
 TraceablePeerConnection.prototype._createOfferOrAnswer = function(
         isOffer,
         constraints) {
@@ -2560,12 +2592,11 @@ TraceablePeerConnection.prototype._createOfferOrAnswer = function(
                     dumpSDP(resultSdp));
             }
 
-            // configure simulcast for camera tracks always and for
-            // desktop tracks only when the testing flag for maxbitrates
-            // in config.js is disabled.
+            // Configure simulcast for camera tracks always and for desktop tracks only when
+            // the "capScreenshareBitrate" flag in config.js is disabled.
             if (this.isSimulcastOn() && browser.usesSdpMungingForSimulcast()
                 && (!this.options.capScreenshareBitrate
-                || (this.options.capScreenshareBitrate && hasCameraTrack(this)))) {
+                || (this.options.capScreenshareBitrate && !this._isSharingScreen()))) {
                 // eslint-disable-next-line no-param-reassign
                 resultSdp = this.simulcast.mungeLocalDescription(resultSdp);
                 this.trace(
@@ -2750,12 +2781,11 @@ TraceablePeerConnection.prototype.generateNewStreamSSRCInfo = function(track) {
         logger.error(`Will overwrite local SSRCs for track ID: ${rtcId}`);
     }
 
-    // configure simulcast for camera tracks always and for
-    // desktop tracks only when the testing flag for maxbitrates
-    // in config.js is disabled.
+    // Configure simulcast for camera tracks always and for desktop tracks only when
+    // the "capScreenshareBitrate" flag in config.js is disabled.
     if (this.isSimulcastOn()
         && (!this.options.capScreenshareBitrate
-        || (this.options.capScreenshareBitrate && hasCameraTrack(this)))) {
+        || (this.options.capScreenshareBitrate && !this._isSharingScreen()))) {
         ssrcInfo = {
             ssrcs: [],
             groups: []
